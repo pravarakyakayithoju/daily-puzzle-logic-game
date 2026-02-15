@@ -1,14 +1,10 @@
-import { VercelRequest, VercelResponse } from "@vercel/node";
 import { Pool } from "pg";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-export default async function handler(
-  req: VercelRequest,
-  res: VercelResponse
-) {
+export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
@@ -25,6 +21,7 @@ export default async function handler(
 
     return res.status(200).json({ message: "User created" });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({ error: "Database error" });
   }
 }
