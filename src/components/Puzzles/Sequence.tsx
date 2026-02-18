@@ -4,13 +4,15 @@ import type { SequenceConfig } from "../../engine/types";
 interface Props {
     data: SequenceConfig;
     onComplete: () => void;
+    onFirstInteraction?: () => void;
 }
 
-export default function Sequence({ data, onComplete }: Props) {
+export default function Sequence({ data, onComplete, onFirstInteraction }: Props) {
     const [selected, setSelected] = useState<number | null>(null);
     const [isWrong, setIsWrong] = useState(false);
 
     const handleSelect = (option: number) => {
+        onFirstInteraction?.();
         setSelected(option);
         if (option === data.answer) {
             setIsWrong(false);

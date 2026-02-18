@@ -25,16 +25,11 @@ export const useActivity = () => {
         let currentStreak = 0;
         let checkDate = dayjs();
 
-        // If today is solved, streak starts from today.
-        // If today is not solved, streak starts from yesterday (if solved).
-        // If neither, streak is 0.
-
         const todayStr = checkDate.format('YYYY-MM-DD');
         if (activities[todayStr]?.solved) {
             currentStreak++;
             checkDate = checkDate.subtract(1, 'day');
         } else {
-            // Check yesterday
             const yesterdayStr = checkDate.subtract(1, 'day').format('YYYY-MM-DD');
             if (!activities[yesterdayStr]?.solved) {
                 return 0;
@@ -42,7 +37,6 @@ export const useActivity = () => {
             checkDate = checkDate.subtract(1, 'day');
         }
 
-        // Continue checking backwards
         while (true) {
             const dateStr = checkDate.format('YYYY-MM-DD');
             if (activities[dateStr]?.solved) {
@@ -55,10 +49,10 @@ export const useActivity = () => {
         return currentStreak;
     };
 
-    const refreshActivity = async () => {
+    const refreshActivity = async (skipSync = false) => {
         setLoading(true);
         try {
-            if (user) {
+            if (user && !skipSync) {
                 await syncActivity(user.uid);
             }
             const allActivities = await getAllActivity();
@@ -77,7 +71,7 @@ export const useActivity = () => {
 
     useEffect(() => {
         refreshActivity();
-    }, [user]); // Run when user changes
+    }, [user]); // eslint-disable-line
 
     const markDayCompleted = async (date: string, score: number, timeTaken: number, hintsUsed: number = 0) => {
         const newEntry: DailyActivity = {
@@ -85,20 +79,32 @@ export const useActivity = () => {
             solved: true,
             score,
             timeTaken,
-            difficulty: 1, // Default for now
-            synced: false, // Pending sync
+            difficulty: 1,
+            synced: false,
             hintsUsed
         };
 
         await saveDailyActivity(newEntry);
-        await refreshActivity(); // This will trigger sync if logged in
+
+        // Immediately sync to remote if logged in
+        if (user) {
+            try {
+                await syncActivity(user.uid);
+                // Mark as synced
+                await saveDailyActivity({ ...newEntry, synced: true });
+            } catch (e) {
+                console.warn('Sync failed, will retry on next load:', e);
+            }
+        }
+
+        // Refresh local state without re-syncing (already done above)
+        await refreshActivity(true);
     };
 
     const resetActivity = async () => {
         await clearAllActivity();
         setActivityMap({});
         setStreak(0);
-        // todo: clear remote if needed, but for now just local reset for testing
     };
 
     const recordHintUsage = async (date: string) => {
@@ -118,7 +124,7 @@ export const useActivity = () => {
         };
 
         await saveDailyActivity(updatedActivity);
-        await refreshActivity();
+        await refreshActivity(true);
         return updatedActivity.hintsUsed;
     };
 

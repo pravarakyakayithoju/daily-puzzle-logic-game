@@ -8,6 +8,7 @@ interface DailyActivity {
     timeTaken: number;
     difficulty: number;
     synced: boolean;
+    hintsUsed?: number;
 }
 
 interface DailyPuzzleDB extends DBSchema {
