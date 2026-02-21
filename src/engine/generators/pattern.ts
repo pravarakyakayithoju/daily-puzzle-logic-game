@@ -3,7 +3,7 @@ import type { PatternConfig } from '../types';
 
 export const generatePatternPuzzle = (seed: number): PatternConfig => {
     const rng = new SeededRNG(seed);
-    const gridSize = 4;
+    const gridSize = 5;
 
     // Generate a random boolean grid
     const targetGrid: boolean[][] = [];

@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { getUserRank } from '../utils/rank';
 
 interface CompletionOverlayProps {
     show: boolean;
@@ -92,85 +93,99 @@ export default function CompletionOverlay({ show, score, timeTaken, hintsUsed, s
 
                     {/* Card */}
                     <motion.div
-                        initial={{ scale: 0.5, opacity: 0, y: 40 }}
-                        animate={{ scale: 1, opacity: 1, y: 0 }}
-                        exit={{ scale: 0.8, opacity: 0 }}
-                        transition={{ type: 'spring', stiffness: 300, damping: 24 }}
-                        className="relative bg-gray-900 border border-gray-700 rounded-2xl p-8 max-w-sm w-full mx-4 shadow-2xl text-center"
+                        initial={{ scale: 0.8, opacity: 0, y: 40, rotateX: 20 }}
+                        animate={{ scale: 1, opacity: 1, y: 0, rotateX: 0 }}
+                        exit={{ scale: 0.9, opacity: 0, rotateX: -10 }}
+                        transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+                        className="relative bg-gradient-to-b from-gray-900/90 to-black/95 border border-white/10 rounded-[3rem] p-12 max-w-md w-full mx-4 shadow-[0_50px_100px_rgba(0,0,0,0.8)] text-center backdrop-blur-3xl overflow-hidden"
                         onClick={(e) => e.stopPropagation()}
                     >
+                        {/* Background Glow */}
+                        <div className="absolute -top-24 -left-24 w-64 h-64 bg-blue-500/10 blur-[100px] rounded-full pointer-events-none" />
+                        <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-purple-500/10 blur-[100px] rounded-full pointer-events-none" />
+
                         {/* Trophy */}
                         <motion.div
-                            className="text-6xl mb-4"
-                            initial={{ scale: 0, rotate: -30 }}
+                            className="text-8xl mb-6 relative inline-block"
+                            initial={{ scale: 0, rotate: -45 }}
                             animate={{ scale: 1, rotate: 0 }}
-                            transition={{ type: 'spring', stiffness: 400, damping: 15, delay: 0.2 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 20, delay: 0.2 }}
                         >
-                            🎉
+                            <span className="relative z-10">🏆</span>
+                            <div className="absolute inset-0 bg-yellow-500/20 blur-3xl animate-pulse rounded-full" />
                         </motion.div>
 
                         <motion.h2
-                            className="text-2xl font-bold text-white mb-1"
-                            initial={{ opacity: 0, y: 10 }}
+                            className="text-4xl font-black text-white tracking-tighter uppercase italic mb-2"
+                            initial={{ opacity: 0, y: 15 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.3 }}
                         >
-                            Puzzle Solved!
+                            Mission Success
                         </motion.h2>
 
                         <motion.p
-                            className="text-gray-400 text-sm mb-6"
+                            className="text-gray-500 text-lg font-medium mb-10 italic uppercase tracking-widest"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ delay: 0.4 }}
                         >
-                            Great work! See you tomorrow.
+                            Cognitive Synchrony Established
                         </motion.p>
 
-                        {/* Stats */}
+                        {/* Stats Grid */}
                         <motion.div
-                            className="grid grid-cols-3 gap-3 mb-6"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.5 }}
+                            className="grid grid-cols-2 gap-6 mb-10"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: 0.5, duration: 0.5 }}
                         >
-                            <div className="bg-gray-800/60 rounded-xl p-3 border border-gray-700">
-                                <div className={`text-2xl font-bold ${scoreColor}`}>{score}</div>
-                                <div className="text-xs text-gray-500 mt-0.5">Score</div>
+                            <div className="bg-white/[0.03] rounded-3xl p-6 border border-white/5 relative group hover:bg-white/[0.05] transition-all">
+                                <div className={`text-4xl font-black ${scoreColor} tracking-tighter`}>{score}</div>
+                                <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] mt-2">Yield</div>
                             </div>
-                            <div className="bg-gray-800/60 rounded-xl p-3 border border-gray-700">
-                                <div className="text-2xl font-bold text-blue-400">{formatTime(timeTaken)}</div>
-                                <div className="text-xs text-gray-500 mt-0.5">Time</div>
+                            <div className="bg-white/[0.03] rounded-3xl p-6 border border-white/5 relative group hover:bg-white/[0.05] transition-all">
+                                <div className="text-4xl font-black text-blue-400 tracking-tighter">{formatTime(timeTaken)}</div>
+                                <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] mt-2">Duration</div>
                             </div>
-                            <div className="bg-gray-800/60 rounded-xl p-3 border border-gray-700">
-                                <div className="text-2xl font-bold text-orange-400 flex items-center justify-center gap-1">
-                                    {streak}{streak >= 7 && <span className="text-lg">🔥</span>}
+                            <div className="bg-white/[0.03] rounded-3xl p-6 border border-white/5 relative group hover:bg-white/[0.05] transition-all">
+                                <div className="text-4xl font-black text-orange-500 flex items-center justify-center gap-2 tracking-tighter">
+                                    {streak}<span className="text-2xl">🔥</span>
                                 </div>
-                                <div className="text-xs text-gray-500 mt-0.5">Streak</div>
+                                <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] mt-2">Streak</div>
+                            </div>
+                            <div className={`bg-white/[0.03] rounded-3xl p-6 border border-white/5 relative overflow-hidden group hover:bg-white/[0.08] transition-all`}>
+                                <div className="text-xl font-black text-white flex flex-col items-center justify-center gap-1 z-10 relative tracking-tight">
+                                    <span className="text-3xl mb-1">{getUserRank(streak).icon}</span>
+                                    {getUserRank(streak).label.toUpperCase()}
+                                </div>
+                                <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em] mt-2 z-10 relative">Status Tier</div>
+                                <div className={`absolute inset-0 ${getUserRank(streak).color} opacity-10 group-hover:opacity-20 transition-opacity`} />
                             </div>
                         </motion.div>
 
                         {hintsUsed > 0 && (
-                            <motion.p
-                                className="text-xs text-yellow-500/70 mb-4"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
+                            <motion.div
+                                className="px-6 py-3 bg-yellow-500/10 border border-yellow-500/20 rounded-2xl mb-8 transform -rotate-1 shadow-lg shadow-yellow-500/5 inline-block mx-auto"
+                                initial={{ opacity: 0, scale: 0.8 }}
+                                animate={{ opacity: 1, scale: 1 }}
                                 transition={{ delay: 0.6 }}
                             >
-                                💡 {hintsUsed} hint{hintsUsed > 1 ? 's' : ''} used (−{hintsUsed * 15} pts)
-                            </motion.p>
+                                <span className="text-sm font-black text-yellow-500 uppercase tracking-widest italic">
+                                    ⚡ {hintsUsed} Logic Hints Activated (−{hintsUsed * 15} pts)
+                                </span>
+                            </motion.div>
                         )}
 
                         <motion.button
                             onClick={onDismiss}
-                            className="w-full py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
+                            className="w-full py-6 bg-white text-black rounded-[2rem] font-black text-xl uppercase tracking-[0.4em] hover:bg-blue-50 hover:scale-[1.02] active:scale-95 transition-all duration-500 shadow-[0_20px_40px_rgba(255,255,255,0.1)] group/btn relative overflow-hidden mt-4"
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.7 }}
-                            whileHover={{ scale: 1.02 }}
-                            whileTap={{ scale: 0.98 }}
                         >
-                            View Stats
+                            <span className="relative z-10">Return to Loop</span>
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-500/5 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000" />
                         </motion.button>
                     </motion.div>
                 </motion.div>

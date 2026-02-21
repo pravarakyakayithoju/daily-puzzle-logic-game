@@ -4,8 +4,8 @@ import type { NumberMatrixConfig } from '../types';
 export const generateNumberMatrix = (seed: number): NumberMatrixConfig => {
     const rng = new SeededRNG(seed);
 
-    // Standard Linear Sorting Logic (1-16)
-    const tiles = Array.from({ length: 16 }, (_, i) => i + 1);
+    // Standard Linear Sorting Logic (1-25)
+    const tiles = Array.from({ length: 25 }, (_, i) => i + 1);
 
     // Shuffle
     for (let i = tiles.length - 1; i > 0; i--) {
@@ -15,7 +15,7 @@ export const generateNumberMatrix = (seed: number): NumberMatrixConfig => {
 
     return {
         type: 'NUMBER_MATRIX',
-        instructions: 'Sort the tiles in ascending order (1-16).',
+        instructions: 'Sort the tiles in ascending order (1-25).',
         grid: tiles,
     };
 };

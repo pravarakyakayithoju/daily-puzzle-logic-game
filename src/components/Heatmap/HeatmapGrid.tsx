@@ -12,6 +12,8 @@ interface DailyActivity {
 
 interface HeatmapGridProps {
     activityMap: Record<string, DailyActivity>;
+    cellSize?: number;
+    gap?: number;
 }
 
 // Calculate intensity based on score and hints (5 levels: 0-4)
@@ -26,7 +28,7 @@ const calculateIntensity = (activity: DailyActivity | undefined): number => {
     return 1;                                         // Low score or multiple hints
 };
 
-export const HeatmapGrid = ({ activityMap }: HeatmapGridProps) => {
+export const HeatmapGrid = ({ activityMap, cellSize = 12, gap = 3 }: HeatmapGridProps) => {
     const { gridData, monthLabels } = useMemo(() => {
         const today = dayjs();
         const startDate = today.subtract(51, 'weeks').startOf('week'); // Start from Sunday
@@ -56,14 +58,14 @@ export const HeatmapGrid = ({ activityMap }: HeatmapGridProps) => {
     const totalCols = Math.ceil(gridData.length / 7);
 
     return (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2">
             {/* Month labels */}
-            <div className="relative h-5" style={{ display: 'grid', gridTemplateColumns: `repeat(${totalCols}, 12px)`, gap: '3px' }}>
+            <div className="relative h-6 flex mb-1">
                 {monthLabels.map(({ col, label }) => (
                     <span
                         key={label + col}
-                        className="text-[10px] text-gray-500 absolute"
-                        style={{ left: col * 15 }}
+                        className="text-[9px] text-gray-500 absolute font-black uppercase tracking-widest"
+                        style={{ left: col * (cellSize + gap) }}
                     >
                         {label}
                     </span>
@@ -73,7 +75,13 @@ export const HeatmapGrid = ({ activityMap }: HeatmapGridProps) => {
             {/* Grid */}
             <div
                 className="heatmap-grid"
-                style={{ gridTemplateColumns: `repeat(${totalCols}, 12px)` }}
+                style={{
+                    display: 'grid',
+                    gridTemplateRows: `repeat(7, ${cellSize}px)`,
+                    gridAutoFlow: 'column',
+                    gridTemplateColumns: `repeat(${totalCols}, ${cellSize}px)`,
+                    gap: `${gap}px`
+                }}
             >
                 {gridData.map((day) => {
                     const dateStr = day.format('YYYY-MM-DD');
@@ -81,27 +89,32 @@ export const HeatmapGrid = ({ activityMap }: HeatmapGridProps) => {
                     const intensity = calculateIntensity(activity);
 
                     return (
-                        <HeatmapCell
+                        <div
                             key={dateStr}
-                            date={dateStr}
-                            intensity={intensity}
-                            activity={activity}
-                        />
+                            style={{ width: cellSize, height: cellSize }}
+                        >
+                            <HeatmapCell
+                                date={dateStr}
+                                intensity={intensity}
+                                activity={activity}
+                                cellSize={cellSize}
+                            />
+                        </div>
                     );
                 })}
             </div>
 
             {/* Legend */}
-            <div className="flex justify-between items-center text-xs text-gray-500 mt-2">
-                <span>Less</span>
-                <div className="flex gap-1 items-center">
-                    <div className="w-3 h-3 bg-gray-800/50 rounded-sm border border-gray-700" title="No activity" />
-                    <div className="w-3 h-3 bg-green-900/60 rounded-sm border border-gray-700" title="Completed (low)" />
-                    <div className="w-3 h-3 bg-green-700/80 rounded-sm border border-gray-700" title="Medium" />
-                    <div className="w-3 h-3 bg-green-500 rounded-sm border border-gray-700" title="High score" />
-                    <div className="w-3 h-3 bg-green-400 rounded-sm border border-gray-700" title="Perfect" />
+            <div className="flex justify-between items-center text-[9px] text-gray-500 mt-6 font-black uppercase tracking-[0.3em]">
+                <span>Empty</span>
+                <div className="flex gap-1.5 items-center">
+                    <div className="w-3.5 h-3.5 bg-gray-800/40 rounded-md border border-white/5" title="No activity" />
+                    <div className="w-3.5 h-3.5 bg-orange-900/50 rounded-md border border-white/5" />
+                    <div className="w-3.5 h-3.5 bg-orange-700/70 rounded-md border border-white/5" />
+                    <div className="w-3.5 h-3.5 bg-orange-500/90 rounded-md border border-white/5" />
+                    <div className="w-3.5 h-3.5 bg-orange-400 rounded-md border border-white/5" />
                 </div>
-                <span>More</span>
+                <span>Peak</span>
             </div>
         </div>
     );

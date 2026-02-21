@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMemo, useState } from 'react';
 import dayjs from 'dayjs';
+import { RANKS } from '../../utils/rank';
 
 interface Milestone {
     id: string;
@@ -40,24 +41,16 @@ export const MilestoneBadges = ({ activityMap, streak }: MilestoneBadgesProps) =
         }
 
         const badges: Milestone[] = [
-            {
-                id: '7-day-streak',
-                name: 'Week Warrior',
-                description: 'Hit a 7-day streak',
-                icon: '🔥',
-                achieved: streak >= 7,
-                goalValue: 7,
+            // Rank Based Milestones (Dynamic from RANKS)
+            ...RANKS.filter(r => r.level > 0).map(r => ({
+                id: `rank-${r.label.toLowerCase()}`,
+                name: `${r.label} Rank`,
+                description: `Reach a ${r.level} day streak`,
+                icon: r.icon,
+                achieved: streak >= r.level,
+                goalValue: r.level,
                 currentValue: streak,
-            },
-            {
-                id: '30-day-streak',
-                name: 'Monthly Master',
-                description: 'Hit a 30-day streak',
-                icon: '🏆',
-                achieved: streak >= 30,
-                goalValue: 30,
-                currentValue: streak,
-            },
+            })),
             {
                 id: 'perfect-month',
                 name: `Flawless ${currentMonth}`,

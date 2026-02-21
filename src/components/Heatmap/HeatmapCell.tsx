@@ -7,6 +7,7 @@ import { Tooltip } from './Tooltip';
 interface HeatmapCellProps {
     date: string;
     intensity: number; // 0-4
+    cellSize?: number;
     activity?: {
         solved: boolean;
         score: number;
@@ -17,14 +18,14 @@ interface HeatmapCellProps {
 }
 
 const INTENSITY_COLORS = [
-    'bg-gray-800/50', // 0: Not played
-    'bg-green-900/60', // 1: Solved with hints or low score
-    'bg-green-700/80', // 2: Solved medium
-    'bg-green-500',    // 3: Solved high score
-    'bg-green-400',    // 4: Perfect score
+    'bg-gray-800/40',    // 0: Not played
+    'bg-orange-900/50',  // 1: Track 1
+    'bg-orange-700/70',  // 2: Track 2
+    'bg-orange-500/90',  // 3: Track 3
+    'bg-orange-400',     // 4: Perfect
 ];
 
-const HeatmapCellComponent = ({ date, intensity, activity }: HeatmapCellProps) => {
+const HeatmapCellComponent = ({ date, intensity, cellSize = 12, activity }: HeatmapCellProps) => {
     const [showTooltip, setShowTooltip] = useState(false);
     const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
     const cellRef = useRef<HTMLDivElement>(null);
@@ -53,7 +54,7 @@ const HeatmapCellComponent = ({ date, intensity, activity }: HeatmapCellProps) =
             <div
                 ref={cellRef}
                 className="relative"
-                style={{ width: 12, height: 12 }}
+                style={{ width: cellSize, height: cellSize }}
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
             >
@@ -66,11 +67,12 @@ const HeatmapCellComponent = ({ date, intensity, activity }: HeatmapCellProps) =
                     transition={{ duration: 0.2 }}
                     // Use CSS hover via className instead of whileHover to avoid layout shift
                     className={clsx(
-                        'w-3 h-3 rounded-sm cursor-pointer border transition-transform duration-100 hover:scale-125 hover:z-10',
+                        'rounded-sm cursor-pointer border transition-transform duration-100 hover:scale-125 hover:z-10',
                         isFuture ? 'border-gray-800' : 'border-gray-700',
                         INTENSITY_COLORS[intensity] ?? INTENSITY_COLORS[0],
                         isToday && 'ring-2 ring-blue-400 ring-offset-1 ring-offset-black',
                     )}
+                    style={{ width: cellSize, height: cellSize }}
                     data-date={date}
                     aria-label={`${date}: ${activity?.solved ? `Solved, score ${activity.score}` : 'No activity'}`}
                     role="gridcell"

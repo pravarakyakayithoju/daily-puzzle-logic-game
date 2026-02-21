@@ -32,32 +32,33 @@ export default function GameContainer({ onComplete }: Props) {
     const dailyActivity = activityMap[todayStr];
     const hintsUsed = dailyActivity?.hintsUsed || 0;
 
+    const load = useCallback(async () => {
+        const p = generateDailyPuzzle(todayStr);
+        setPuzzle(p);
+
+        // Restore saved progress
+        const saved = await getPuzzleProgress(todayStr);
+        if (saved) {
+            if (saved.matrixState && saved.matrixState.length > 0) {
+                setMatrixState(saved.matrixState);
+            }
+            if (saved.patternState && saved.patternState.length > 0) {
+                setPatternState(saved.patternState);
+            }
+            // Restore elapsed time by marking as started with saved time
+            if (saved.elapsedMs && saved.elapsedMs > 0) {
+                setHasStarted(true);
+            }
+        }
+
+        setCurrentHint(null);
+    }, [todayStr]);
+
     // Load puzzle and restore progress
     useEffect(() => {
-        const load = async () => {
-            const p = generateDailyPuzzle(todayStr);
-            setPuzzle(p);
-
-            // Restore saved progress
-            const saved = await getPuzzleProgress(todayStr);
-            if (saved) {
-                if (saved.matrixState && saved.matrixState.length > 0) {
-                    setMatrixState(saved.matrixState);
-                }
-                if (saved.patternState && saved.patternState.length > 0) {
-                    setPatternState(saved.patternState);
-                }
-                // Restore elapsed time by marking as started with saved time
-                if (saved.elapsedMs && saved.elapsedMs > 0) {
-                    setHasStarted(true);
-                }
-            }
-
-            setCurrentHint(null);
-        };
         load();
         resetTimer();
-    }, []); // eslint-disable-line
+    }, [load, resetTimer]);
 
     // Save progress whenever state changes
     const saveProgress = useCallback(async (mState: number[], pState: boolean[][]) => {

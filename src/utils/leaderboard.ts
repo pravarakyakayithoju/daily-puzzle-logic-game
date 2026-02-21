@@ -9,27 +9,23 @@ export interface LeaderboardEntry {
     photoURL?: string;
     score: number;
     timeTaken: number; // in seconds
+    streak: number;    // Adding streak for rank display
     timestamp: number;
 }
 
-export const submitScore = async (user: User, score: number, timeTaken: number) => {
+export const submitScore = async (user: User, score: number, timeTaken: number, streak: number) => {
     if (!user) return;
     const today = dayjs().format("YYYY-MM-DD");
 
-    // Check if we already have a score for today that is better
-    // For simplicity, we just overwrite for now, or we could check local state.
-    // Ideally we only submit if it's the first time or a better score?
-    // Daily puzzle is one-time usually. But let's assume one submission per day per user.
-
     const leaderboardRef = doc(db, "daily_leaderboard", today, "scores", user.uid);
 
-    // Basic User Info
     const entry: LeaderboardEntry = {
         uid: user.uid,
         displayName: user.displayName || "Anonymous",
         photoURL: user.photoURL || undefined,
         score,
         timeTaken,
+        streak,
         timestamp: Date.now()
     };
 

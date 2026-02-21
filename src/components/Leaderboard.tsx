@@ -4,6 +4,7 @@ import type { LeaderboardEntry } from "../utils/leaderboard";
 import dayjs from "dayjs";
 import { auth } from "../firebase";
 import { useAuthState } from "react-firebase-hooks/auth";
+import { getUserRank } from "../utils/rank";
 
 export default function Leaderboard() {
     const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -64,9 +65,12 @@ export default function Leaderboard() {
                                                         {entry.displayName[0]}
                                                     </div>
                                                 )}
-                                                <span className={isMe ? "text-blue-300 font-bold" : "text-gray-300"}>
+                                                <span className={`${isMe ? "text-blue-300 font-bold" : "text-gray-300"} flex items-center gap-1.5`}>
                                                     {entry.displayName}
-                                                    {isMe && " (You)"}
+                                                    <span className="text-[10px]" title={getUserRank(entry.streak || 0).label}>
+                                                        {getUserRank(entry.streak || 0).icon}
+                                                    </span>
+                                                    {isMe && "(You)"}
                                                 </span>
                                             </div>
                                         </td>

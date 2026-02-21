@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import dayjs from 'dayjs';
 import { getAllActivity, saveDailyActivity, clearAllActivity } from '../db/dailyActivity';
 import { auth } from '../firebase';
@@ -21,7 +21,7 @@ export const useActivity = () => {
     const [streak, setStreak] = useState(0);
     const [loading, setLoading] = useState(true);
 
-    const calculateStreak = (activities: Record<string, DailyActivity>) => {
+    const calculateStreak = useCallback((activities: Record<string, DailyActivity>) => {
         let currentStreak = 0;
         let checkDate = dayjs();
 
@@ -47,9 +47,9 @@ export const useActivity = () => {
             }
         }
         return currentStreak;
-    };
+    }, []);
 
-    const refreshActivity = async (skipSync = false) => {
+    const refreshActivity = useCallback(async (skipSync = false) => {
         setLoading(true);
         try {
             if (user && !skipSync) {
@@ -67,13 +67,13 @@ export const useActivity = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user, calculateStreak]);
 
     useEffect(() => {
         refreshActivity();
-    }, [user]); // eslint-disable-line
+    }, [refreshActivity]);
 
-    const markDayCompleted = async (date: string, score: number, timeTaken: number, hintsUsed: number = 0) => {
+    const markDayCompleted = useCallback(async (date: string, score: number, timeTaken: number, hintsUsed: number = 0) => {
         const newEntry: DailyActivity = {
             date,
             solved: true,
@@ -97,38 +97,51 @@ export const useActivity = () => {
             }
         }
 
-        // Refresh local state without re-syncing (already done above)
-        await refreshActivity(true);
-    };
+        const allActivities = await getAllActivity();
+        const map: Record<string, DailyActivity> = {};
+        allActivities.forEach(a => {
+            map[a.date] = a;
+        });
+        const newStreak = calculateStreak(map);
 
-    const resetActivity = async () => {
+        setActivityMap(map);
+        setStreak(newStreak);
+        setLoading(false);
+
+        return newStreak;
+    }, [user, calculateStreak]);
+
+    const resetActivity = useCallback(async () => {
         await clearAllActivity();
         setActivityMap({});
         setStreak(0);
-    };
+    }, []);
 
-    const recordHintUsage = async (date: string) => {
-        const activity = activityMap[date] || {
-            date,
-            solved: false,
-            score: 0,
-            timeTaken: 0,
-            difficulty: 1,
-            synced: false,
-            hintsUsed: 0
-        };
+    const recordHintUsage = useCallback(async (date: string) => {
+        // Use functional state update to avoid dependency on activityMap
+        let hintCount = 0;
+        setActivityMap(prev => {
+            const activity = prev[date] || {
+                date,
+                solved: false,
+                score: 0,
+                timeTaken: 0,
+                difficulty: 1,
+                synced: false,
+                hintsUsed: 0
+            };
+            const updated = {
+                ...activity,
+                hintsUsed: (activity.hintsUsed || 0) + 1
+            };
+            hintCount = updated.hintsUsed!;
+            saveDailyActivity(updated);
+            return { ...prev, [date]: updated };
+        });
+        return hintCount;
+    }, []);
 
-        const updatedActivity = {
-            ...activity,
-            hintsUsed: (activity.hintsUsed || 0) + 1
-        };
-
-        await saveDailyActivity(updatedActivity);
-        await refreshActivity(true);
-        return updatedActivity.hintsUsed;
-    };
-
-    return {
+    return useMemo(() => ({
         activityMap,
         streak,
         loading,
@@ -136,5 +149,5 @@ export const useActivity = () => {
         markDayCompleted,
         recordHintUsage,
         resetActivity
-    };
+    }), [activityMap, streak, loading, refreshActivity, markDayCompleted, recordHintUsage, resetActivity]);
 };

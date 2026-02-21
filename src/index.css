@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  body {
+    @apply font-['Plus_Jakarta_Sans'] antialiased;
+  }
+}
+
 /* ===== Animations ===== */
 @keyframes fade-in {
   from {

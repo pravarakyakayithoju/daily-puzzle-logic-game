@@ -2,18 +2,22 @@ import { useState, useEffect } from "react";
 import GameContainer from "./components/GameContainer";
 import Leaderboard from "./components/Leaderboard";
 import CompletionOverlay from "./components/CompletionOverlay";
-import Sidebar from "./components/Sidebar";
 import { useActivity } from "./hooks/useActivity";
 import { useAuth } from "./hooks/useAuth";
 import dayjs from "dayjs";
 import { submitScore } from "./utils/leaderboard";
 import { motion, AnimatePresence } from "framer-motion";
+import { HeatmapGrid } from "./components/Heatmap/HeatmapGrid";
+import { MilestoneBadges } from "./components/Heatmap/MilestoneBadges";
+import { getUserRank, getNextRank } from "./utils/rank";
 
 export default function App() {
   const [showOverlay, setShowOverlay] = useState(false);
   const [lastScore, setLastScore] = useState(0);
   const [lastTime, setLastTime] = useState(0);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isGameActive, setIsGameActive] = useState(false);
+  const [isHeatmapExpanded, setIsHeatmapExpanded] = useState(false);
 
   const { markDayCompleted, resetActivity, activityMap, streak, loading } = useActivity();
   const { user, login, logout } = useAuth();
@@ -22,7 +26,20 @@ export default function App() {
   const todayActivity = activityMap[today];
   const alreadyCompleted = todayActivity?.solved === true;
 
-  // Online/offline tracking
+  const totalSolved = Object.values(activityMap).filter(a => a.solved).length;
+  const perfectDays = Object.values(activityMap).filter(a => a.score >= 100).length;
+
+  const weekDays = [...Array(7)].map((_, i) => {
+    const d = dayjs().subtract(6 - i, 'day');
+    const dateStr = d.format('YYYY-MM-DD');
+    return {
+      label: d.format('dd')[0],
+      dateStr,
+      solved: activityMap[dateStr]?.solved ?? false,
+      isToday: i === 6,
+    };
+  });
+
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -42,57 +59,39 @@ export default function App() {
 
   const handleComplete = async (timeTaken: number) => {
     const hints = activityMap[today]?.hintsUsed || 0;
-
     const timeBonus = Math.max(0, Math.round((60 - Math.min(timeTaken, 60)) * 0.5));
     const finalScore = Math.max(10, 100 - hints * 15 + timeBonus);
 
     setLastScore(finalScore);
     setLastTime(timeTaken);
+
+    // Await completion so state updates (streak, activityMap) before overlay
+    const newStreak = await markDayCompleted(today, finalScore, timeTaken, hints);
+    if (user) await submitScore(user, finalScore, timeTaken, newStreak);
+
     setShowOverlay(true);
-
-    await markDayCompleted(today, finalScore, timeTaken, hints);
-
-    if (user) {
-      await submitScore(user, finalScore, timeTaken);
-    }
+    setIsGameActive(false);
   };
 
-
   return (
-    <div className="min-h-screen bg-[#020205] text-white flex flex-col items-center py-12 relative overflow-x-hidden selection:bg-blue-500/30">
+    <div className="min-h-screen bg-[#020205] text-white flex flex-col items-center py-10 relative overflow-x-hidden selection:bg-blue-500/30">
 
-      {/* Star Particles */}
+      {/* Visual background layers */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        {[...Array(40)].map((_, i) => (
+        {[...Array(50)].map((_, i) => (
           <motion.div
             key={i}
             initial={{ opacity: 0.1, scale: 0.2 }}
-            animate={{
-              opacity: [0.1, 0.7, 0.1],
-              scale: [0.2, 1, 0.2],
-              y: [0, -60, 0]
-            }}
-            transition={{
-              duration: 5 + Math.random() * 8,
-              repeat: Infinity,
-              delay: Math.random() * 10
-            }}
-            className="absolute w-[2px] h-[2px] bg-white rounded-full"
-            style={{
-              top: `${Math.random() * 100}%`,
-              left: `${Math.random() * 100}%`,
-              boxShadow: '0 0 10px rgba(255,255,255,0.8)'
-            }}
+            animate={{ opacity: [0.1, 0.8, 0.1], scale: [0.2, 1, 0.2], y: [0, -100, 0] }}
+            transition={{ duration: 5 + Math.random() * 10, repeat: Infinity, delay: Math.random() * 10 }}
+            className="absolute w-[2px] h-[2px] bg-white rounded-full shadow-[0_0_10px_white]"
+            style={{ top: `${Math.random() * 100}%`, left: `${Math.random() * 100}%` }}
           />
         ))}
       </div>
+      <div className="aura-blob w-[800px] h-[800px] bg-blue-600/5 -top-40 -left-40" />
+      <div className="aura-blob w-[800px] h-[800px] bg-purple-600/5 top-1/2 -right-40" style={{ animationDelay: '-5s' }} />
 
-      {/* Dynamic Background Aura */}
-      <div className="aura-blob w-[700px] h-[700px] bg-blue-600/10 -top-20 -left-20" />
-      <div className="aura-blob w-[600px] h-[600px] bg-purple-600/10 top-1/2 -right-20" style={{ animationDelay: '-5s' }} />
-      <div className="aura-blob w-[500px] h-[500px] bg-indigo-600/10 -bottom-20 left-1/3" style={{ animationDelay: '-10s' }} />
-
-      {/* Completion Overlay */}
       <CompletionOverlay
         show={showOverlay}
         score={lastScore}
@@ -102,164 +101,246 @@ export default function App() {
         onDismiss={() => setShowOverlay(false)}
       />
 
-      {/* Top Bar */}
-      <div className="absolute top-8 right-10 flex gap-6 items-center z-50">
-        <div className="flex items-center gap-3 mr-2" title={isOnline ? 'Online – sync active' : 'Offline – changes saved locally'}>
-          <div className={`w-3 h-3 rounded-full transition-colors ${isOnline ? 'bg-green-400 shadow-[0_0_15px_#4ade80]' : 'bg-gray-500'}`} />
-          <span className="text-xs font-black text-gray-400 hidden sm:block tracking-[0.2em] uppercase">{isOnline ? 'Active' : 'Offline'}</span>
+      {/* Modern Fixed Top Nav */}
+      <nav className="fixed top-0 inset-x-0 h-20 bg-black/40 backdrop-blur-xl border-b border-white/5 z-50 px-10 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-2xl rotate-12 shadow-[0_0_15px_rgba(37,99,235,0.5)]">L</div>
+          <span className="text-xl font-black tracking-tighter uppercase italic">Logic <span className="text-blue-500">Looper</span></span>
         </div>
 
-        {user ? (
-          <>
-            <div className="flex items-center gap-4 bg-white/5 px-4 py-2 rounded-2xl border border-white/10 backdrop-blur-md">
-              {user.photoURL && <img src={user.photoURL} alt="Profile" className="w-7 h-7 rounded-full shadow-lg shadow-black/50" />}
-              <span className="text-sm font-black text-white hidden sm:block uppercase tracking-tighter">{user.displayName}</span>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="bg-red-500/10 text-[11px] font-black uppercase tracking-[0.2em] text-red-400 px-6 py-2.5 rounded-2xl hover:bg-red-500 hover:text-white transition-all duration-300 border border-red-500/20 shadow-lg shadow-red-500/5 group"
-            >
-              Sign Out
-            </button>
-          </>
-        ) : (
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-2xl border border-white/5">
+            <div className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-green-400 shadow-[0_0_10px_#4ade80]' : 'bg-gray-500'}`} />
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{isOnline ? 'Active' : 'Offline'}</span>
+          </div>
+
           <button
-            onClick={login}
-            className="bg-blue-600 text-sm font-black uppercase tracking-[0.2em] text-white px-8 py-3 rounded-2xl hover:bg-blue-500 transition-all duration-300 shadow-2xl shadow-blue-500/20 border border-blue-400/30"
+            onClick={() => resetActivity().then(() => window.location.reload())}
+            className="text-[10px] font-black uppercase tracking-widest text-red-500/50 hover:text-red-500 transition-colors border border-red-500/10 px-3 py-1 rounded-lg hover:bg-red-500/5"
           >
-            Sign In
+            Purge System
           </button>
-        )}
-      </div>
 
-      {/* Header Area */}
-      <div className="w-full max-w-7xl px-8 mb-24 flex flex-col items-center">
-        <motion.h1
-          initial={{ opacity: 0, y: -40 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-7xl md:text-9xl font-black mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 tracking-tighter uppercase italic leading-none drop-shadow-2xl"
-        >
-          Logic Daily
-        </motion.h1>
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="text-gray-400 text-xl font-black tracking-[0.6em] uppercase opacity-70"
-        >
-          {dayjs().format('dddd, MMMM D')}
-        </motion.p>
-      </div>
+          {user ? (
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3">
+                <img src={user.photoURL!} alt="" className="w-8 h-8 rounded-full border border-white/20" />
+                <span className="text-xs font-black uppercase tracking-widest text-white/80">{user.displayName}</span>
+              </div>
+              <button onClick={handleLogout} className="text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-300 transition-colors">Sign Out</button>
+            </div>
+          ) : (
+            <button onClick={login} className="bg-blue-600 px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-500/20">Sign In</button>
+          )}
+        </div>
+      </nav>
 
-      {/* Main Layout Grid */}
-      <div className="w-full max-w-[1600px] px-12 flex flex-col lg:flex-row gap-20 items-start min-h-[800px]">
-
-        {/* Left Column: Stats & History */}
-        <aside className="w-full lg:w-[450px] shrink-0 sticky top-16">
-          <Sidebar activityMap={activityMap} streak={streak} loading={loading} />
-        </aside>
-
-        {/* Right/Center Column: Game & Banners */}
-        <main className="flex-1 w-full flex flex-col items-center z-10">
+      <div className="w-full max-w-[1920px] px-10 mt-24 z-10">
+        <AnimatePresence mode="wait">
           {loading ? (
-            <div className="w-full flex flex-col items-center justify-center py-60 gap-12">
+            <motion.div key="loading" exit={{ opacity: 0 }} className="w-full flex flex-col items-center justify-center py-60 gap-12">
               <div className="relative w-32 h-32">
                 <div className="absolute inset-0 border-[6px] border-blue-500/5 rounded-full" />
                 <div className="absolute inset-0 border-[6px] border-blue-500 border-t-transparent rounded-full animate-spin" />
-                <div className="absolute inset-4 border-[6px] border-purple-500 border-b-transparent rounded-full animate-spin-slow" />
               </div>
-              <p className="text-gray-500 text-2xl font-black uppercase tracking-[0.5em] animate-pulse">Synchronizing Data</p>
-            </div>
+              <p className="text-gray-500 text-2xl font-black uppercase tracking-[0.5em] animate-pulse">Syncing Network</p>
+            </motion.div>
+          ) : isGameActive && !alreadyCompleted ? (
+            <motion.div key="game" initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="w-full flex flex-col items-center gap-12 max-w-7xl mx-auto">
+              <div className="w-full flex justify-between items-center mb-10">
+                <button onClick={() => setIsGameActive(false)} className="bg-white/5 px-8 py-4 rounded-2xl border border-white/10 text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-all">← Abort Mission</button>
+                <div className="flex flex-col items-end">
+                  <div className="text-blue-400 text-sm font-black uppercase tracking-[0.5em] mb-1">Active Mission</div>
+                  <div className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Protocol Version 2.0.4</div>
+                </div>
+              </div>
+              <div className="w-full flex justify-center scale-125 md:scale-[1.6] py-40 origin-top relative mb-40">
+                <div className="absolute inset-0 bg-blue-600/5 blur-[180px] rounded-full -z-10" />
+                <GameContainer onComplete={handleComplete} />
+              </div>
+            </motion.div>
           ) : (
-            <div className="w-full flex flex-col items-center">
-              <AnimatePresence mode="wait">
-                {!alreadyCompleted ? (
-                  <motion.div
-                    key="banner"
-                    initial={{ opacity: 0, scale: 0.9, y: 60 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: -60 }}
-                    className="w-full mb-16 p-16 bg-gradient-to-br from-blue-600/20 via-indigo-600/10 to-purple-600/20 border border-white/10 rounded-[4rem] backdrop-blur-[100px] flex flex-col items-center text-center gap-12 relative overflow-hidden group shadow-[0_60px_150px_rgba(0,0,0,0.7)]"
-                  >
-                    {/* Decorative floating elements */}
-                    <div className="absolute -top-40 -left-40 w-96 h-96 bg-blue-500/10 rounded-full blur-[150px] animate-pulse" />
-                    <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-500/10 rounded-full blur-[150px] animate-pulse" style={{ animationDelay: '1.5s' }} />
+            <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-10 pb-40">
 
-                    <div className="relative z-10 space-y-6">
-                      <div className="inline-block px-8 py-2 bg-blue-500/20 text-blue-400 text-sm font-black uppercase tracking-[0.4em] rounded-full border border-blue-500/30 mb-6 backdrop-blur-md">
-                        Global Daily Protocol
-                      </div>
-                      <h2 className="text-7xl md:text-9xl font-black tracking-tighter text-white uppercase italic leading-[0.85]">
-                        Module <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-400">Online</span>
-                      </h2>
-                      <p className="text-gray-400 text-2xl md:text-3xl font-medium max-w-4xl mx-auto leading-relaxed italic opacity-80">
-                        New cognitive sequence established. Optimize logic paths for terminal velocity.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap justify-center gap-8 relative z-10 w-full max-w-5xl">
-                      <div className="flex-1 min-w-[250px] p-10 bg-white/[0.03] rounded-[2.5rem] border border-white/5 text-center transition-all hover:bg-white/[0.07] hover:scale-105 duration-700 shadow-2xl">
-                        <div className="text-sm text-gray-500 uppercase font-black tracking-[0.3em] mb-4">Integrity</div>
-                        <div className="text-3xl font-black text-green-400 uppercase tracking-tighter">Verified</div>
-                      </div>
-                      <div className="flex-1 min-w-[250px] p-10 bg-white/[0.03] rounded-[2.5rem] border border-white/5 text-center transition-all hover:bg-white/[0.07] hover:scale-105 duration-700 shadow-2xl">
-                        <div className="text-sm text-gray-500 uppercase font-black tracking-[0.3em] mb-4">Efficiency</div>
-                        <div className="text-3xl font-black text-yellow-400 italic font-mono">&lt; 0:40s</div>
-                      </div>
-                      <div className="flex-1 min-w-[250px] p-10 bg-white/[0.03] rounded-[2.5rem] border border-white/5 text-center transition-all hover:bg-white/[0.07] hover:scale-105 duration-700 shadow-2xl">
-                        <div className="text-sm text-gray-500 uppercase font-black tracking-[0.3em] mb-4">Classification</div>
-                        <div className="text-3xl font-black text-blue-400 uppercase">Grandmaster</div>
-                      </div>
-                    </div>
-
-                    <div className="w-full h-3 bg-white/5 rounded-full overflow-hidden shadow-inner">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: '100%' }}
-                        transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                        className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 shadow-[0_0_30px_rgba(59,130,246,0.8)]"
-                      />
-                    </div>
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-
-              <div className="w-full flex justify-center py-10">
-                {alreadyCompleted ? (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9, y: 40 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    className="text-center p-20 bg-white/[0.03] backdrop-blur-[100px] rounded-[4rem] border border-white/10 mx-auto max-w-4xl shadow-[0_80px_200px_rgba(0,0,0,0.8)] relative overflow-hidden"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-b from-green-500/5 to-transparent pointer-events-none" />
-                    <div className="text-green-400 text-7xl font-black mb-12 uppercase italic tracking-tighter drop-shadow-[0_0_30px_rgba(74,222,128,0.3)]">Daily Challenge Completed</div>
-                    <div className="flex justify-center gap-24 mb-16">
-                      <div className="text-center group">
-                        <div className="text-gray-500 text-sm uppercase font-black tracking-[0.3em] mb-4 group-hover:text-white transition-colors">Net Score</div>
-                        <div className="text-7xl font-black text-white group-hover:scale-110 transition-transform">{todayActivity.score}</div>
-                      </div>
-                      {todayActivity.timeTaken > 0 && (
-                        <div className="text-center group">
-                          <div className="text-gray-500 text-sm uppercase font-black tracking-[0.3em] mb-4 group-hover:text-white transition-colors">Time Index</div>
-                          <div className="text-7xl font-black text-white group-hover:scale-110 transition-transform">
-                            {Math.floor(todayActivity.timeTaken / 60)}:{String(todayActivity.timeTaken % 60).padStart(2, '0')}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-gray-400 text-2xl mb-16 font-semibold italic opacity-60">System standing updated. Next window opens at midnight.</p>
-                    <Leaderboard />
-                  </motion.div>
-                ) : (
-                  <div className="w-full flex justify-center scale-125 md:scale-[1.4] py-32 origin-top relative">
-                    <div className="absolute inset-0 bg-blue-500/5 blur-[120px] rounded-full -z-10" />
-                    <GameContainer onComplete={handleComplete} />
-                  </div>
-                )}
+              {/* ENGAGING HEADING ROW */}
+              <div className="flex flex-col items-center text-center mb-20 px-4 relative">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-32 bg-blue-500/10 blur-[100px] pointer-events-none rounded-full" />
+                <motion.span
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="px-4 py-1.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-black uppercase tracking-[0.5em] mb-6 rounded-full backdrop-blur-sm shadow-[0_0_20px_rgba(59,130,246,0.1)]"
+                >
+                  {getUserRank(streak).label} Level Activated
+                </motion.span>
+                <motion.h1
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.8, ease: "easeOut" }}
+                  className="text-5xl md:text-7xl font-extrabold text-white tracking-tight uppercase leading-none mb-8 relative"
+                >
+                  Master your <span className="text-blue-500 italic">Cognitive Loop</span>
+                </motion.h1>
+                <p className="text-gray-500 text-lg md:text-xl font-medium tracking-wide max-w-3xl leading-relaxed">
+                  Ready for today's <span className="text-white font-bold">Challenge?</span> <br />
+                  Make your mind <span className="text-blue-400 italic">sharper, faster, and smarter.</span>
+                </p>
               </div>
-            </div>
+
+              {/* BENTO GRID */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+
+                {/* 1. MAIN MISSION CARD (Left/Center) */}
+                <div className="lg:col-span-8 flex flex-col gap-10">
+                  {!alreadyCompleted ? (
+                    <motion.div
+                      whileHover={{ scale: 1.01 }}
+                      className="w-full p-20 bg-gradient-to-br from-blue-600/30 via-transparent to-transparent border border-white/10 rounded-[5rem] backdrop-blur-[120px] flex flex-col items-center text-center gap-16 relative overflow-hidden group shadow-[0_50px_100px_rgba(0,0,0,0.5)]"
+                    >
+                      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-blue-400/50 to-transparent group-hover:via-white transition-all duration-1000" />
+                      <div className="relative z-10 space-y-10">
+                        <div className="flex items-center justify-center gap-4">
+                          <span className="w-12 h-[1px] bg-blue-500/30" />
+                          <div className="text-blue-400 text-[10px] font-black uppercase tracking-[0.8em]">Tactical Logic Sync</div>
+                          <span className="w-12 h-[1px] bg-blue-500/30" />
+                        </div>
+                        <h2 className="text-7xl md:text-[10rem] font-black tracking-tighter text-white uppercase italic leading-none drop-shadow-2xl select-none">Begin <br />Protocol</h2>
+                        <p className="text-gray-400 text-xl md:text-2xl font-medium max-w-4xl mx-auto leading-relaxed italic opacity-80 decoration-blue-500/30 underline-offset-8">A high-tier cognitive anomaly has been detected. Are you sharp enough to solve it?</p>
+                      </div>
+                      <button
+                        onClick={() => setIsGameActive(true)}
+                        className="relative z-10 px-24 py-10 bg-white text-black rounded-[4rem] text-3xl font-black uppercase tracking-[0.4em] hover:bg-blue-50 hover:scale-105 active:scale-95 transition-all duration-500 shadow-[0_20px_50px_rgba(255,255,255,0.15)] group/btn"
+                      >
+                        <span className="relative z-10">Engage Now</span>
+                        <div className="absolute inset-0 bg-blue-500 opacity-0 group-hover/btn:opacity-10 rounded-[4rem] transition-opacity" />
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <div className="w-full p-20 bg-green-500/5 border border-green-500/20 rounded-[4rem] flex flex-col items-center text-center gap-10">
+                      <div className="text-green-400 text-8xl font-black uppercase italic tracking-tighter transform -rotate-2">Mission Success</div>
+                      <div className="flex gap-20">
+                        <div className="text-center group">
+                          <div className="text-gray-500 text-xs uppercase font-black tracking-[0.3em] mb-4">Final Score</div>
+                          <div className="text-9xl font-black text-white group-hover:scale-110 transition-transform">{todayActivity.score}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* HEATMAP CARD (Now Large & Centered) */}
+                  <div className={`transition-all duration-700 bg-white/[0.03] border border-white/10 rounded-[4rem] backdrop-blur-3xl overflow-hidden shadow-2xl ${isHeatmapExpanded ? 'fixed inset-10 z-[100] p-24 bg-black/95' : 'p-16'}`}>
+                    <div className="flex justify-between items-center mb-16">
+                      <div className="flex items-center gap-4">
+                        <div className="w-3 h-3 bg-blue-500 rounded-full shadow-[0_0_15px_#3b82f6]" />
+                        <h3 className="text-sm font-black text-white uppercase tracking-[0.4em]">Global Network Matrix</h3>
+                      </div>
+                      <button onClick={() => setIsHeatmapExpanded(!isHeatmapExpanded)} className="bg-white/5 px-6 py-3 rounded-2xl border border-white/10 text-[10px] font-black uppercase tracking-widest hover:bg-white/10">{isHeatmapExpanded ? 'Close Monitor' : 'Expand Matrix'}</button>
+                    </div>
+                    <div className={`transition-all duration-700 w-full overflow-hidden flex justify-center`}>
+                      <HeatmapGrid activityMap={activityMap} cellSize={isHeatmapExpanded ? 24 : 14} gap={isHeatmapExpanded ? 8 : 4} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. SIDE STAT PANEL (Right) */}
+                <div className="lg:col-span-4 flex flex-col gap-10">
+
+                  {/* Streak Card */}
+                  <div className="bg-gradient-to-br from-orange-500/20 to-transparent border border-orange-500/20 rounded-[4rem] p-16 relative overflow-hidden group shadow-2xl">
+                    <div className="relative z-10 flex flex-col items-center text-center gap-8">
+                      <motion.div animate={{ scale: [1, 1.2, 1], filter: ['drop-shadow(0 0 5px #f97316)', 'drop-shadow(0 0 30px #f97316)', 'drop-shadow(0 0 5px #f97316)'] }} transition={{ duration: 2, repeat: Infinity }} className="text-9xl">🔥</motion.div>
+                      <div className="mb-0">
+                        <div className="text-9xl font-black text-white leading-none tracking-tighter">{streak}</div>
+                        <div className="text-sm text-orange-400 font-black uppercase tracking-[0.5em] mt-4">Active Loop</div>
+                      </div>
+                    </div>
+
+                    {/* Next Rank Progress */}
+                    {getNextRank(streak).rank && (
+                      <div className="relative z-10 mt-10 mb-10 w-full max-w-[200px] mx-auto space-y-3">
+                        <div className="flex justify-between items-end text-[10px] font-black uppercase tracking-widest">
+                          <span className="text-gray-400">Next: {getNextRank(streak).rank?.label}</span>
+                          <span className="text-orange-500">{getNextRank(streak).daysRemaining}d left</span>
+                        </div>
+                        <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${(streak / getNextRank(streak).rank!.level) * 100}%` }}
+                            className={`h-full ${getNextRank(streak).rank?.color} shadow-[0_0_10px_rgba(255,255,255,0.2)]`}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-end h-20 gap-4 relative z-10">
+                      {weekDays.map((day, i) => (
+                        <div key={i} className="flex flex-col items-center gap-4 flex-1">
+                          <div className="w-full flex-1 rounded-full bg-white/5 relative overflow-hidden min-h-[10px]">
+                            {day.solved && (
+                              <motion.div
+                                initial={{ height: 0 }}
+                                animate={{ height: '100%' }}
+                                className="absolute inset-0 bg-gradient-to-t from-orange-600 to-yellow-400 shadow-[0_0_20px_rgba(249,115,22,0.5)]"
+                              />
+                            )}
+                          </div>
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${day.isToday ? 'text-white' : 'text-gray-600'}`}>
+                            {day.label}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-2 gap-10">
+                    <div className="bg-white/5 border border-white/10 rounded-[3rem] p-12 text-center group hover:bg-white/[0.08] transition-all">
+                      <div className="text-7xl font-black text-white group-hover:scale-110 transition-all">{totalSolved}</div>
+                      <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] mt-4">Cycles</div>
+                    </div>
+                    <div className="bg-white/5 border border-white/10 rounded-[3rem] p-12 text-center group hover:bg-white/[0.08] transition-all">
+                      <div className="text-7xl font-black text-green-400 group-hover:scale-110 transition-all">{perfectDays}</div>
+                      <div className="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em] mt-4">Apex</div>
+                    </div>
+                  </div>
+
+                  {/* Medals */}
+                  <div className="bg-white/5 border border-white/10 rounded-[4rem] p-16">
+                    <h3 className="text-xs font-black text-purple-400 uppercase tracking-[0.4em] mb-12 flex items-center gap-4">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full shadow-[0_0_10px_#a855f7]" /> Medals
+                    </h3>
+                    <MilestoneBadges activityMap={activityMap} streak={streak} />
+                  </div>
+
+                  {/* History */}
+                  <div className="bg-white/5 border border-white/10 rounded-[4rem] p-16 flex-1">
+                    <h3 className="text-xs font-black text-pink-400 uppercase tracking-[0.4em] mb-12 flex items-center gap-4">
+                      <div className="w-2 h-2 bg-pink-500 rounded-full shadow-[0_0_10px_#ec4899]" /> Logs
+                    </h3>
+                    <div className="space-y-10">
+                      {Object.values(activityMap).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5).map(a => (
+                        <div key={a.date} className="flex justify-between items-center group">
+                          <div>
+                            <div className="text-sm font-black uppercase text-gray-200">{dayjs(a.date).format('MMM D')}</div>
+                            <div className="text-[10px] text-gray-600 font-black uppercase">{a.score >= 100 ? 'Apex' : 'Stable'}</div>
+                          </div>
+                          <div className="text-3xl font-black text-blue-500 group-hover:scale-125 transition-all">{a.score}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* WORLD RANKING ROW */}
+              <div className="w-full bg-white/[0.02] border border-white/5 rounded-[5rem] p-24">
+                <h3 className="text-sm font-black text-gray-500 uppercase tracking-[0.6em] mb-20 text-center">Protocol Universal Standings</h3>
+                <Leaderboard />
+              </div>
+
+            </motion.div>
           )}
-        </main>
+        </AnimatePresence>
       </div>
     </div>
   );

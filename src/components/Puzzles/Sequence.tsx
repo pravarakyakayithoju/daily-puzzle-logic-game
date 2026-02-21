@@ -10,13 +10,18 @@ interface Props {
 export default function Sequence({ data, onComplete, onFirstInteraction }: Props) {
     const [selected, setSelected] = useState<number | null>(null);
     const [isWrong, setIsWrong] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
 
     const handleSelect = (option: number) => {
+        if (isSuccess) return;
         onFirstInteraction?.();
         setSelected(option);
         if (option === data.answer) {
             setIsWrong(false);
-            onComplete();
+            setIsSuccess(true);
+            setTimeout(() => {
+                onComplete();
+            }, 800);
         } else {
             setIsWrong(true);
             setTimeout(() => setIsWrong(false), 800);
@@ -36,14 +41,18 @@ export default function Sequence({ data, onComplete, onFirstInteraction }: Props
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4 w-full">
+            <div className={`grid grid-cols-2 gap-4 w-full transition-transform ${isWrong ? 'animate-shake' : ''}`}>
                 {data.options.map((opt) => (
                     <button
                         key={opt}
                         onClick={() => handleSelect(opt)}
-                        className={`p-6 rounded-xl text-2xl font-bold transition-all ${selected === opt && isWrong
-                            ? 'bg-red-500/20 text-red-400 border-red-500 animate-shake'
-                            : 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700'
+                        disabled={isSuccess}
+                        className={`p-6 rounded-xl text-2xl font-bold transition-all transform active:scale-95 shadow-lg
+                            ${opt === data.answer && isSuccess
+                                ? 'bg-green-500 border-green-400 text-white scale-105 shadow-[0_0_20px_rgba(34,197,94,0.4)]'
+                                : selected === opt && isWrong
+                                    ? 'bg-red-600 border-red-500 text-white animate-shake'
+                                    : 'bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700'
                             }`}
                     >
                         {opt}
