@@ -35,7 +35,7 @@ export default function NumberMatrix({ data, onComplete, currentState, onStateCh
             setIsSuccess(true);
             setTimeout(() => {
                 onComplete();
-            }, 800);
+            }, 200);
         } else {
             setIsWrong(true);
             setTimeout(() => setIsWrong(false), 500);

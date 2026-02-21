@@ -1,8 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 
-export const useTimer = (isRunning: boolean) => {
-    const [elapsedTime, setElapsedTime] = useState(0);
+export const useTimer = (isRunning: boolean, initialTime: number = 0) => {
+    const [elapsedTime, setElapsedTime] = useState(initialTime);
     const intervalRef = useRef<number | null>(null);
+
+    // Update state if initialTime changes (e.g., when progress is loaded)
+    useEffect(() => {
+        setElapsedTime(initialTime);
+    }, [initialTime]);
 
     useEffect(() => {
         if (isRunning) {

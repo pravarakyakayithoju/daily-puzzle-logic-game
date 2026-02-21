@@ -25,8 +25,9 @@ export default function GameContainer({ onComplete }: Props) {
     // Lifted States
     const [matrixState, setMatrixState] = useState<number[]>([]);
     const [patternState, setPatternState] = useState<boolean[][]>([]);
+    const [restoredTime, setRestoredTime] = useState(0);
 
-    const { elapsedTime, formatTime, resetTimer } = useTimer(hasStarted && !isCompleted);
+    const { elapsedTime, formatTime, resetTimer } = useTimer(hasStarted && !isCompleted, restoredTime);
 
     const todayStr = dayjs().format('YYYY-MM-DD');
     const dailyActivity = activityMap[todayStr];
@@ -47,6 +48,7 @@ export default function GameContainer({ onComplete }: Props) {
             }
             // Restore elapsed time by marking as started with saved time
             if (saved.elapsedMs && saved.elapsedMs > 0) {
+                setRestoredTime(saved.elapsedMs);
                 setHasStarted(true);
             }
         }

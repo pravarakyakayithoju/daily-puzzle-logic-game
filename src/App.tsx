@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { HeatmapGrid } from "./components/Heatmap/HeatmapGrid";
 import { MilestoneBadges } from "./components/Heatmap/MilestoneBadges";
 import { getUserRank, getNextRank } from "./utils/rank";
+import BluestockLogo from "./components/BluestockLogo";
 
 export default function App() {
   const [showOverlay, setShowOverlay] = useState(false);
@@ -64,13 +65,13 @@ export default function App() {
 
     setLastScore(finalScore);
     setLastTime(timeTaken);
-
-    // Await completion so state updates (streak, activityMap) before overlay
-    const newStreak = await markDayCompleted(today, finalScore, timeTaken, hints);
-    if (user) await submitScore(user, finalScore, timeTaken, newStreak);
-
     setShowOverlay(true);
     setIsGameActive(false);
+
+    // Perform persistence and leaderboard submission in background
+    markDayCompleted(today, finalScore, timeTaken, hints).then(newStreak => {
+      if (user) submitScore(user, finalScore, timeTaken, newStreak);
+    });
   };
 
   return (
@@ -102,11 +103,8 @@ export default function App() {
       />
 
       {/* Modern Fixed Top Nav */}
-      <nav className="fixed top-0 inset-x-0 h-20 bg-black/40 backdrop-blur-xl border-b border-white/5 z-50 px-10 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-2xl rotate-12 shadow-[0_0_15px_rgba(37,99,235,0.5)]">L</div>
-          <span className="text-xl font-black tracking-tighter uppercase italic">Logic <span className="text-blue-500">Looper</span></span>
-        </div>
+      <nav className="fixed top-0 inset-x-0 h-24 bg-black/60 backdrop-blur-2xl border-b border-white/5 z-50 px-12 flex items-center justify-between shadow-[0_10px_30px_rgba(0,0,0,0.5)]">
+        <BluestockLogo />
 
         <div className="flex items-center gap-8">
           <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-2xl border border-white/5">
@@ -151,7 +149,7 @@ export default function App() {
                 <button onClick={() => setIsGameActive(false)} className="bg-white/5 px-8 py-4 rounded-2xl border border-white/10 text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-all">← Abort Mission</button>
                 <div className="flex flex-col items-end">
                   <div className="text-blue-400 text-sm font-black uppercase tracking-[0.5em] mb-1">Active Mission</div>
-                  <div className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Protocol Version 2.0.4</div>
+                  <div className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">System Version 2.0.4</div>
                 </div>
               </div>
               <div className="w-full flex justify-center scale-125 md:scale-[1.6] py-40 origin-top relative mb-40">
@@ -178,7 +176,7 @@ export default function App() {
                   transition={{ duration: 0.8, ease: "easeOut" }}
                   className="text-5xl md:text-7xl font-extrabold text-white tracking-tight uppercase leading-none mb-8 relative"
                 >
-                  Master your <span className="text-blue-500 italic">Cognitive Loop</span>
+                  Master the <span className="text-blue-500 italic">Bluestock Challenge</span>
                 </motion.h1>
                 <p className="text-gray-500 text-lg md:text-xl font-medium tracking-wide max-w-3xl leading-relaxed">
                   Ready for today's <span className="text-white font-bold">Challenge?</span> <br />
@@ -203,7 +201,7 @@ export default function App() {
                           <div className="text-blue-400 text-[10px] font-black uppercase tracking-[0.8em]">Tactical Logic Sync</div>
                           <span className="w-12 h-[1px] bg-blue-500/30" />
                         </div>
-                        <h2 className="text-7xl md:text-[10rem] font-black tracking-tighter text-white uppercase italic leading-none drop-shadow-2xl select-none">Begin <br />Protocol</h2>
+                        <h2 className="text-7xl md:text-[10rem] font-black tracking-tighter text-white uppercase italic leading-none drop-shadow-2xl select-none">Begin <br />Challenge</h2>
                         <p className="text-gray-400 text-xl md:text-2xl font-medium max-w-4xl mx-auto leading-relaxed italic opacity-80 decoration-blue-500/30 underline-offset-8">A high-tier cognitive anomaly has been detected. Are you sharp enough to solve it?</p>
                       </div>
                       <button

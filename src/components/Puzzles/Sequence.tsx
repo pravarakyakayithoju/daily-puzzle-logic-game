@@ -21,7 +21,7 @@ export default function Sequence({ data, onComplete, onFirstInteraction }: Props
             setIsSuccess(true);
             setTimeout(() => {
                 onComplete();
-            }, 800);
+            }, 200);
         } else {
             setIsWrong(true);
             setTimeout(() => setIsWrong(false), 800);

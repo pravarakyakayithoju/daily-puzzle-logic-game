@@ -44,7 +44,7 @@ export default function Pattern({ data, onComplete, currentState, onStateChange 
             setIsSuccess(true);
             setTimeout(() => {
                 onComplete();
-            }, 800);
+            }, 200);
         } else {
             setIsWrong(true);
             setTimeout(() => setIsWrong(false), 500);

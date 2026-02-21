@@ -10,9 +10,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
-        name: 'Logic Looper: Daily Puzzle',
-        short_name: 'Logic Looper',
-        description: 'A daily rotating logic puzzle game with cloud sync and leaderboards.',
+        name: 'Bluestock: Daily Logic Challenge',
+        short_name: 'Bluestock',
+        description: 'Elite daily logic puzzles and cognitive training by Bluestock.',
         theme_color: '#000000',
         background_color: '#000000',
         display: 'standalone',
