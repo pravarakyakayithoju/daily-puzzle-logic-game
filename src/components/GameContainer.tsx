@@ -27,7 +27,7 @@ export default function GameContainer({ onComplete }: Props) {
     const [patternState, setPatternState] = useState<boolean[][]>([]);
     const [restoredTime, setRestoredTime] = useState(0);
 
-    const { elapsedTime, formatTime, resetTimer } = useTimer(hasStarted && !isCompleted, restoredTime);
+    const { elapsedTime, formatTime } = useTimer(hasStarted && !isCompleted, restoredTime);
 
     const todayStr = dayjs().format('YYYY-MM-DD');
     const dailyActivity = activityMap[todayStr];
@@ -59,8 +59,7 @@ export default function GameContainer({ onComplete }: Props) {
     // Load puzzle and restore progress
     useEffect(() => {
         load();
-        resetTimer();
-    }, [load, resetTimer]);
+    }, [load]);
 
     // Save progress whenever state changes
     const saveProgress = useCallback(async (mState: number[], pState: boolean[][]) => {

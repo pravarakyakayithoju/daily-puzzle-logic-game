@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 export const useTimer = (isRunning: boolean, initialTime: number = 0) => {
     const [elapsedTime, setElapsedTime] = useState(initialTime);
-    const intervalRef = useRef<number | null>(null);
 
     // Update state if initialTime changes (e.g., when progress is loaded)
     useEffect(() => {
@@ -11,26 +10,18 @@ export const useTimer = (isRunning: boolean, initialTime: number = 0) => {
 
     useEffect(() => {
         if (isRunning) {
-            const startTime = Date.now() - elapsedTime;
-            intervalRef.current = window.setInterval(() => {
+            // Anchor from the initialTime to handle restoration correctly and avoid drift
+            const startTime = Date.now() - initialTime;
+            const intervalId = window.setInterval(() => {
                 setElapsedTime(Date.now() - startTime);
             }, 100);
-        } else {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-            }
+            return () => clearInterval(intervalId);
         }
+    }, [isRunning, initialTime]);
 
-        return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-            }
-        };
-    }, [isRunning]);
-
-    const resetTimer = () => {
+    const resetTimer = useCallback(() => {
         setElapsedTime(0);
-    };
+    }, []);
 
     const formatTime = (ms: number) => {
         const totalSeconds = Math.floor(ms / 1000);
