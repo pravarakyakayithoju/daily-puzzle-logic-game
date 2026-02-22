@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { collection, doc, setDoc, getDocs, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 import dayjs from "dayjs";
 import type { User } from "firebase/auth";
@@ -39,11 +39,42 @@ export const getLeaderboard = async (dateStr?: string): Promise<LeaderboardEntry
     // Sort by Score DESC, then Time ASC
     const q = query(scoresRef, orderBy("score", "desc"), orderBy("timeTaken", "asc"), limit(50));
 
-    const snapshot = await getDocs(q);
-    const results: LeaderboardEntry[] = [];
-    snapshot.forEach(doc => {
-        results.push(doc.data() as LeaderboardEntry);
-    });
+    try {
+        const snapshot = await getDocs(q);
+        const results: LeaderboardEntry[] = [];
+        snapshot.forEach(doc => {
+            results.push(doc.data() as LeaderboardEntry);
+        });
+        return results;
+    } catch (error) {
+        console.error("Leaderboard fetch error:", error);
+        return [];
+    }
+};
 
-    return results;
+/**
+ * Subscribes to the leaderboard for a specific date (defaults to today)
+ * @param callback Called whenever the leaderboard data changes
+ * @param dateStr Optional date string (YYYY-MM-DD)
+ * @returns Unsubscribe function
+ */
+export const subscribeToLeaderboard = (
+    callback: (entries: LeaderboardEntry[]) => void,
+    dateStr?: string
+) => {
+    const date = dateStr || dayjs().format("YYYY-MM-DD");
+    const scoresRef = collection(db, "daily_leaderboard", date, "scores");
+
+    // Sort by Score DESC, then Time ASC
+    const q = query(scoresRef, orderBy("score", "desc"), orderBy("timeTaken", "asc"), limit(50));
+
+    return onSnapshot(q, (snapshot) => {
+        const results: LeaderboardEntry[] = [];
+        snapshot.forEach(doc => {
+            results.push(doc.data() as LeaderboardEntry);
+        });
+        callback(results);
+    }, (error) => {
+        console.error("Leaderboard subscription error:", error);
+    });
 };

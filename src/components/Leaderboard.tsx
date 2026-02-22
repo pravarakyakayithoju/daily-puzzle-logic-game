@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getLeaderboard } from "../utils/leaderboard";
+import { subscribeToLeaderboard } from "../utils/leaderboard";
 import type { LeaderboardEntry } from "../utils/leaderboard";
 import dayjs from "dayjs";
 import { auth } from "../firebase";
@@ -12,17 +12,12 @@ export default function Leaderboard() {
     const [user] = useAuthState(auth);
 
     useEffect(() => {
-        const fetchLeaderboard = async () => {
-            try {
-                const data = await getLeaderboard();
-                setEntries(data);
-            } catch (error) {
-                console.error("Failed to fetch leaderboard", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchLeaderboard();
+        const unsubscribe = subscribeToLeaderboard((data) => {
+            setEntries(data);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, []);
 
     if (loading) return <div className="text-gray-500 text-sm animate-pulse text-center mt-4">Loading Leaderboard...</div>;
